@@ -33,12 +33,11 @@ notebook to the same directory as `output_dir`.
      split sizes 16,000/2,000/2,000.
 3. `02_feature_exploration/stat_analysis.ipynb`
    - Inspect the 16 statistical features before fitting a tabular model.
-4. `03_model_training/1_cnn_model.ipynb`
+4. `03_model_training/1_cnn_model_v2.ipynb`
    - Train the historical 1D CNN with per-channel maximum normalization.
    - Require CUDA and read each input from the full array by `sample_index`.
    - Check the recorded model shape, validation-selected checkpoint, and test
-     metrics. Stop after the test metric; the following cells are retained
-     legacy diagnostics.
+     metrics.
 5. `03_model_training/classical_learning_stat.ipynb`
    - Train the six-model statistical ladder.
    - Check the validation-selected thresholds and the selected three-feature
