@@ -27,15 +27,15 @@ notebook to the same directory as `output_dir`.
    - Check the source checksum and metadata/time-series row alignment.
 2. `01_dataset_creation/subdataset_creation.ipynb`
    - Build the historical balanced subset.
+   - Save the selected 20,000 channel-time-series rows as the historical subset array.
    - Preserve `sample_index`, the 16 features, and labels in subset metadata.
-   - Use `sample_index` to map each subset row to the full channel-time-series array.
    - Check 10,000 `NBRFI` and 10,000 `None` rows, source-row alignment, and
      split sizes 16,000/2,000/2,000.
 3. `02_feature_exploration/stat_analysis.ipynb`
    - Inspect the 16 statistical features before fitting a tabular model.
 4. `03_model_training/1_cnn_model_v2.ipynb`
    - Train the historical 1D CNN with per-channel maximum normalization.
-   - Require CUDA and read each input from the full array by `sample_index`.
+   - Require CUDA and read each input from the compact subset array.
    - Check the recorded model shape, validation-selected checkpoint, and test
      metrics.
 5. `03_model_training/classical_learning_stat.ipynb`
