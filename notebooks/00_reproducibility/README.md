@@ -25,6 +25,10 @@ export RFIM_SEGMENT_LABELS_PATH=/path/to/segments_index_B0531+21_59000_48386.csv
 export RFIM_OUTPUT_DIR=/path/to/existing/output_directory
 ```
 
+Start Jupyter from `RFIM_OUTPUT_DIR` for all later notebooks. Their existing
+relative paths then read the generated files and write the model artifacts to
+the same run directory.
+
 ## Run order and checks
 
 1. `01_dataset_creation/creating_dataset_from_filterbank_by_indexes.ipynb`
