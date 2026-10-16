@@ -16,28 +16,20 @@ The segment-label table is required. The RFI annotations define positive
 channels. The table defines the clean `None` segments. Do not create `None`
 labels from all segments outside the RFI blocks.
 
-Before the first notebook, set these paths to existing server files and an
-existing output directory:
-
-```bash
-export RFIM_FILTERBANK_PATH=/path/to/B0531+21_59000_48386.fil
-export RFIM_SEGMENT_LABELS_PATH=/path/to/segments_index_B0531+21_59000_48386.csv
-export RFIM_OUTPUT_DIR=/path/to/existing/output_directory
-```
-
-Start Jupyter from `RFIM_OUTPUT_DIR` for all later notebooks. Their existing
-relative paths then read the generated files and write the model artifacts to
-the same run directory.
+Before the first notebook, set `filterbank_file_path`, `segment_labels_path`,
+and `output_dir` to existing server locations. Set `run_dir` in the second
+notebook to the same directory as `output_dir`.
 
 ## Run order and checks
 
 1. `01_dataset_creation/creating_dataset_from_filterbank_by_indexes.ipynb`
    - Build 256-sample channel profiles with labels and identity columns.
-   - Check the source checksum and the expected `(6823936, 256)` array shape.
+   - Check the source checksum and metadata/profile row alignment.
 2. `01_dataset_creation/subdataset_creation.ipynb`
    - Build the historical balanced subset.
-   - Check 10,000 `NBRFI` and 10,000 `None` rows, with split sizes
-     16,000/2,000/2,000.
+   - Preserve source identity columns with the 16 features and labels.
+   - Check 10,000 `NBRFI` and 10,000 `None` rows, source-row alignment, and
+     split sizes 16,000/2,000/2,000.
 3. `02_feature_exploration/stat_analysis.ipynb`
    - Inspect the 16 statistical features before fitting a tabular model.
 4. `03_model_training/1_cnn_model.ipynb`
