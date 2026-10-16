@@ -16,11 +16,20 @@ The segment-label table is required. The RFI annotations define positive
 channels. The table defines the clean `None` segments. Do not create `None`
 labels from all segments outside the RFI blocks.
 
+Before the first notebook, set these paths to existing server files and an
+existing output directory:
+
+```bash
+export RFIM_FILTERBANK_PATH=/path/to/B0531+21_59000_48386.fil
+export RFIM_SEGMENT_LABELS_PATH=/path/to/segments_index_B0531+21_59000_48386.csv
+export RFIM_OUTPUT_DIR=/path/to/existing/output_directory
+```
+
 ## Run order and checks
 
 1. `01_dataset_creation/creating_dataset_from_filterbank_by_indexes.ipynb`
    - Build 256-sample channel profiles with labels and identity columns.
-   - Check the source checksum, array/metadata row alignment, and label counts.
+   - Check the source checksum and the expected `(6823936, 256)` array shape.
 2. `01_dataset_creation/subdataset_creation.ipynb`
    - Build the historical balanced subset.
    - Check 10,000 `NBRFI` and 10,000 `None` rows, with split sizes
