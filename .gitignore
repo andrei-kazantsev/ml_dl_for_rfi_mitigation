@@ -28,6 +28,7 @@ env/
 *_channels_meta.csv
 *_subset_channels_meta.csv
 segments_index_*.csv
+!/segments_index_B0531+21_59000_48386.csv
 mask_stats_*.csv
 
 # Generated diagnostic figures
