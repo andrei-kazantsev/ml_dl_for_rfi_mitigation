@@ -1,328 +1,66 @@
-# ML/DL for RFI Mitigation
-
-This directory contains exploratory notebooks and intermediate artifacts for
-channel-level radio-frequency-interference mitigation experiments.
-
-The work started from the idea that narrowband RFI can be treated as a
-one-dimensional channel-classification problem: each frequency channel is
-represented by its short time series, and the model decides whether that
-channel is contaminated by RFI.
-
-The current state is intentionally notebook-first. The notebooks are the main
-place for data inspection, model comparison, qualitative checks, and figure
-generation. Future refactoring should make reusable code available to the
-notebooks without replacing the notebook-based research workflow.
-
-## Scientific Scope
-
-The current experiments focus on narrowband RFI (`NBRFI`) in filterbank-like
-data. The first object used for dataset creation is:
-
-- `B0531+21_59000_48386.fil`
-
-The practical motivation is to test whether a channel-level model can support
-the broader PhD RFI-mitigation work and later help MICA-like single-pulse
-pipelines by removing or flagging narrowband contamination that is not well
-represented in DM-time images.
-
-## Main Classes
-
-The current labeling scheme has three relevant classes:
-
-- `NBRFI`: frequency channels inside manually selected narrowband-RFI ranges.
-- `None`: channels from segments where no RFI was identified.
-- `NoneWNBRFI`: channels inside RFI-containing segments but outside the
-  manually selected RFI frequency ranges.
-
-At the current baseline stage, models are trained mainly on `NBRFI` versus
-`None`. `NoneWNBRFI` is better treated as a hard-negative or stress-test class,
-not as an ordinary training negative.
-
-## Important Methodological Note
-
-The current notebooks are exploratory and should not yet be treated as a fully
-reproducible pipeline.
-
-The historical row-level split is retained only as a reproducibility control:
-
-- `notebooks/01_dataset_creation/subdataset_creation.ipynb` currently creates
-  `split_indices.npz` with a stratified row-level split.
-- For channel-level data, channels from the same segment are correlated.
-- `notebooks/01_dataset_creation/group_split_subset.ipynb` is the corrected
-  path: it assigns each `segment_index` to only one of `train`, `validation`,
-  or `test` before the balanced subset is sampled.
-
-This is especially important for statistical features that use ratios between
-per-channel quantities and whole-segment quantities.
-
-## Repository Layout
-
-```text
-.
-|-- README.md
-|-- configs/
-|   |-- experiments/
-|   |   `-- experiment_spec_template.json
-|   `-- README.md
-|-- docs/
-|   |-- artifact_manifest.md
-|   |-- data_contract.md
-|   |-- experiment_pipeline_design.md
-|   |-- legacy_baseline_reproduction_plan.md
-|   |-- notebook_workflow.md
-|   `-- roadmap.md
-|-- legacy_exports/
-|   `-- old notebook-to-Python exports
-|-- notebooks/
-|   |-- 00_reproducibility/
-|   |-- 01_dataset_creation/
-|   |-- 02_feature_exploration/
-|   |-- 03_model_training/
-|   `-- 04_full_file_tests/
-`-- src/
-    `-- rfimt/
-        |-- constants.py
-        |-- features.py
-        |-- io.py
-        |-- labels.py
-        |-- metrics.py
-        |-- models.py
-        `-- splits.py
-```
-
-The repository is organized around notebooks because the project is still in a
-research-analysis stage. `src/rfimt/` contains stable helpers that are useful
-across notebooks, but notebooks remain the primary analysis interface.
-
-The helper package supports Python `3.8+`. For reproducible RFI runs, install
-it inside the `pytorch4punch.sif` research environment when you want notebooks
-to import `rfimt` without setting `PYTHONPATH` manually:
-
-```bash
-pip install -e .
-```
-
-## Testing
-
-Until the shared `pytorch4punch.sif` image is updated, use the compatible
-`unittest` runner:
-
-```bash
-PYTHONPATH=src python -B -m unittest discover -s tests -v
-```
-
-Migrate the test interface to `pytest` when the shared image supplies it. The
-existing `unittest` tests should then remain runnable through pytest; do not
-rewrite working assertions merely for framework style.
-
-## Notebook Map
-
-### Dataset Creation
-
-- `notebooks/01_dataset_creation/creating_dataset_from_filterbank_by_indexes.ipynb`
-  - Reads selected segments from `B0531+21_59000_48386.fil`.
-  - Uses manually defined RFI segment ranges and frequency-channel ranges.
-  - Creates channel-level examples.
-  - Computes raw and normalized per-channel statistics.
-  - Writes the large channel dataset and metadata.
-
-- `notebooks/01_dataset_creation/subdataset_creation.ipynb`
-  - Creates a smaller balanced subset for faster experiments.
-  - Current baseline subset: `10000` `NBRFI` examples and `10000` `None`
-    examples.
-  - Historical row-level control only; do not use it for corrected metrics.
-
-- `notebooks/01_dataset_creation/group_split_subset.ipynb`
-  - New corrected path; leaves the historical subset untouched.
-  - Preserves canonical metadata and builds the balanced subset only after
-    `segment_index` groups have been assigned to train, validation or test.
-  - Writes a local provenance record, split summary and hard-negative index
-    file beside the new artifacts.
-
-### Exploratory Statistics
-
-- `notebooks/02_feature_exploration/stat_analysis.ipynb`
-  - Visual inspection of statistical features.
-  - Useful for understanding whether simple feature projections separate
-    classes.
-
-### Model Training
-
-- `notebooks/03_model_training/1_cnn_model.ipynb`
-  - PyTorch 1D-CNN baseline on raw 256-sample channel time series.
-  - Tests the Rishi Kumar-inspired channel-profile approach with input length
-    adapted from `512` to `256`.
-  - Includes segment-level visual checks and timing measurements.
-
-- `notebooks/03_model_training/classical_learning_stat.ipynb`
-  - Scikit-learn models trained on engineered statistical features.
-  - Compares linear and nonlinear baselines:
-    - SGD logistic regression;
-    - SGD linear SVM;
-    - polynomial degree-2 logistic regression;
-    - RBF approximation plus logistic regression;
-    - histogram gradient boosting;
-    - MLP.
-  - Performs validation-threshold selection and feature-importance checks.
-  - Saves selected top-k feature models.
-
-- `notebooks/03_model_training/cnn_experiment_runner.ipynb`
-  - Corrected 1D-CNN baseline on the group-split subset.
-  - Uses per-channel z-score normalization, validation-only checkpoint and
-    threshold selection, and a separate `NoneWNBRFI` stress test.
-
-- `notebooks/03_model_training/cnn_experiment_runner_legacy_max.ipynb`
-  - Group-split control using the original per-channel division by row maximum.
-  - Isolates the effect of correcting the split from the effect of changing
-    normalization.
-
-- `notebooks/03_model_training/cnn_experiment_runner_zscore_segment.ipynb`
-  - Group-split test using one z-score normalization per complete 256-channel
-    spectrogram segment before sampled channel rows are selected.
-
-- `notebooks/03_model_training/statistical_experiment_runner.ipynb`
-  - Corrected statistical baseline on the same group-split subset.
-  - Repeats the six legacy candidates with independent manifests: SGD logistic
-    regression, SGD linear SVM, polynomial logistic regression, RBF-approximate
-    logistic regression, histogram gradient boosting and the legacy-sized MLP.
-  - Linear-SVM decision scores are sigmoid-mapped for ranking and threshold
-    selection only; its log loss is not reported as probability calibration.
-
-### Full-File / Real-Data Tests
-
-- `notebooks/04_full_file_tests/cnn_full_heldout_segment_evaluation.ipynb`
-  - Corrected replacement for the legacy ``unused''-segment review.
-  - Recovers held-out `segment_index` values from the group split, evaluates
-    every corresponding full-observation row, reuses the CNN run's frozen
-    validation threshold, and writes per-label, per-segment and visual-review
-    diagnostics.
-  - Defaults to CPU because the legacy benchmark found no GPU advantage at
-    one-segment batches; change the declared device only for a measured GPU
-    comparison.
-  - It is a same-observation held-out-segment test, not transfer to a new
-    observation.
-  - Visual review saves paired grayscale images: the original spectrogram and
-    the same spectrogram overlaid with the predicted black channel mask.
-    The queue covers false positives, false negatives, mixed errors, positive
-    recovery, clean references and threshold-borderline cases.
-
-- `notebooks/04_full_file_tests/cnn_full_heldout_segment_evaluation_legacy_max.ipynb`
-  and `cnn_full_heldout_segment_evaluation_zscore_segment.ipynb`
-  - Equivalent full-held-out evaluations for the two additional normalization
-    experiments. Run each only after its matching training notebook has written
-    the checkpoint and manifest.
-
-- `notebooks/04_full_file_tests/statistical_full_heldout_segment_evaluation.ipynb`
-  - Applies the same complete held-out segments to every frozen statistical
-    candidate using the 16 stored metadata features.
-  - Runs on CPU in batches and intentionally does not repeat feature
-    extraction, so it is an evaluation audit rather than a real-time runtime
-    measurement.
-
-- `notebooks/04_full_file_tests/1d_cnn_global_test_rfi_cleaning_real_test.ipynb`
-  - Applies a trained 1D-CNN model to larger data products.
-  - Contains FITS/PSRFITS-oriented masking helpers.
-
-- `notebooks/04_full_file_tests/mlp_global_test_rfi_cleaning_real_test.ipynb`
-  - Applies selected scikit-learn/statistical models to larger data products.
-  - Contains masking, segment writing, and diagnostic plotting helpers.
-
-## Data And Artifact Policy
-
-The repository should track source code, notebooks, small metadata examples,
-configuration files, and documentation.
-
-The repository should not track large data or generated diagnostics:
-
-- raw filterbank / FITS / PSRFITS / archive files;
-- large `.npy` arrays;
-- full metadata CSV files with millions of rows;
-- generated diagnostic PNG directories;
-- temporary Jupyter checkpoints;
-- local caches and logs.
-
-Heavy files should be moved between machines with `rsync` or another external
-data-transfer mechanism. When a heavy artifact is scientifically important,
-record its filename, origin, shape, size, and generation notebook in a small
-manifest rather than committing the artifact itself.
-
-## Current Large Artifacts
-
-Known large local artifacts include:
-
-- `B0531+21_59000_48386_channels.npy`
-  - Full channel dataset.
-  - Approximate local size: `6.6G`.
-
-- `B0531+21_59000_48386_channels_meta.csv`
-  - Full channel metadata table.
-  - Approximate local size: `2.3G`.
-
-- `B0531+21_59000_48386_subset_channels.npy`
-  - Balanced subset used by current notebooks.
-  - Approximate local size: `20M`.
-
-- `B0531+21_59000_48386_subset_channels_meta.csv`
-  - Metadata for the current balanced subset.
-  - Approximate local size: `5.8M`.
-
-- diagnostic directories such as
-  `1_cnn_individual_key_metrics_segment_nbrf_*` and
-  `stat_individual_key_metrics_segment_nbrf_*`.
-
-## Recommended Near-Term Cleanup
-
-The next cleanup should preserve the notebook-first workflow while making the
-analysis easier to restart:
-
-1. Reproduce the legacy row-level baseline without changing the old split,
-   labels, normalization, or model definitions.
-2. Record the recovered 1D-CNN, statistical-model, and segment-level results as
-   legacy exploratory metrics.
-3. Replace the current row-level split with a segment-level group split.
-4. Re-run the baseline 1D-CNN and statistical models after the split fix.
-5. Execute the corrected CNN and statistical runners, then run the held-out
-   full-segment CNN review before comparing cleaning or normalization variants.
-6. Extract stable helper functions into `src/rfimt/`, while keeping notebooks
-   as the main research interface.
-7. Only after the corrected baseline is reproducible, revisit z-score normalization and
-   FITS offset handling.
-8. Prepare a separate student-facing task and dataset only after the research
-   data contract is stable.
-
-The current working plan is tracked in `docs/roadmap.md`.
-
-## Relation To PhD Planning
-
-This work supports the RFI-mitigation follow-ups in the PhD planning system:
-
-- `rfi_filterbank_test`: test the method directly on filterbank files.
-- `rfi_zscore_normalization_test`: check whether z-score style normalization
-  improves transfer to other observations.
-- `rfi_fits_offset_recheck`: check whether FITS subintegration offsets caused
-  failure on B0355+54 and FRB20240114A-like data.
-
-## Git Policy
-
-Before committing, check that large data products are ignored:
-
-```bash
-git status --short
-```
-
-Expected tracked file types:
-
-- `.md`
-- `.ipynb`
-- `.py`
-- small `.yaml` / `.json` configs
-- small manifest files
-
-Expected untracked/ignored file types:
-
-- `.npy`, `.npz`
-- `.fil`, `.fits`, `.ar`
-- large `.csv`
-- generated `.png`
-- `.ipynb_checkpoints/`
-- model checkpoints unless explicitly selected for release
+# Machine Learning for RFI Mitigation
+
+This repository explores narrowband radio-frequency interference (RFI)
+mitigation with a small 1D convolutional neural network (CNN) and classical
+machine learning models. The CNN uses the time series of each frequency
+channel. The classical models use statistical features calculated from the
+same data.
+
+The notebooks reproduce the training and evaluation workflow for an
+observation of the Crab pulsar (B0531+21). The global test uses labelled
+segments from the same observation that were not used for training.
+
+## Notebooks
+
+Run the notebooks in this order:
+
+1. `01_create_training_subset.ipynb` — create the training data and split.
+2. `02_cnn_training.ipynb` — train the CNN.
+3. `03_statistical_models_training.ipynb` — train and compare the statistical models, then select one to save.
+4. `04_model_inspection.ipynb` — inspect model predictions on spectrograms.
+5. `05_global_test.ipynb` — evaluate the models on labelled segments not used for training.
+6. `06_model_performance.ipynb` — measure CNN and statistical-model inference time.
+7. `07_visualization.ipynb` — plot the training, evaluation, and performance results.
+
+In notebook 03, set `selected_model_name` after inspecting the models. The
+later notebooks use the saved model.
+
+## Data and paths
+
+Download `B0531+21_59000_48386.fil` from the [published dataset](https://doi.org/10.17617/3.HQYC8O).
+The segment labels are included in this repository as
+`segments_index_B0531+21_59000_48386.csv`.
+
+Set the filterbank path in `config.py`. You can also change the paths to the
+labels and output directory there. The first notebook creates the output
+directory and saves the generated training data there. The other notebooks
+use the same directory for models and results.
+
+Some notebooks can overwrite existing results. Use a separate output directory
+when you want to keep a previous run.
+
+## Requirements
+
+The reference environment uses Python 3.10.12.
+
+| Package | Reference version | Use |
+| --- | --- | --- |
+| JupyterLab | 3.6.7 | Run the notebooks. |
+| NumPy | 1.24.4 | Work with channel arrays and numerical calculations. |
+| pandas | 2.0.3 | Work with labels, features, and result tables. |
+| SciPy | 1.10.1 | Calculate the sigmoid function for model scores. |
+| scikit-learn | 1.3.2 | Split data, train statistical models, and calculate metrics. |
+| PyTorch | 2.2.2+cu121 | Train and run the CNN on CPU or GPU. |
+| Matplotlib | 3.7.2 | Plot spectrograms, training curves, and results. |
+| joblib | 1.6.0 | Save and load the selected statistical model. |
+| tqdm | 4.66.1 | Show progress during processing and training. |
+| your | 0.6.7 | Read filterbank data. |
+
+The CNN can train on CPU or GPU. Notebook 06 requires a CUDA-enabled GPU for
+the CPU/GPU performance comparison. Its timings cover model inference and the
+threshold decision, not data loading or feature calculation.
+
+## Contact
+
+For questions, errors, or inaccuracies, contact
+[akazantsev@mpifr-bonn.mpg.de](mailto:akazantsev@mpifr-bonn.mpg.de).
